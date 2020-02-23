@@ -7,11 +7,12 @@ import org.scalacheck.Gen.listOf
 import org.scalacheck.Arbitrary
 import org.scalacheck.Arbitrary.arbitrary
 
-import scala.util.Random.shuffle
 import spire.math.Natural
 import Vickrey.{Bid, pricesToBidList, auctionNaive, auctionSeasoned}
 
 object VickreySpecification extends Properties("Vickrey") {
+
+  /* The provided test case serves as a basic sanity check. */
 
   val providedExampleBids = List(
     List(Natural(110), Natural(130)),               // A
@@ -30,7 +31,9 @@ object VickreySpecification extends Properties("Vickrey") {
     (auctionSeasoned compose pricesToBidList)(providedExampleBids).head
       .equals(providedExampleOutcome)
 
-  // at least two distinct bidders are needed to run a second-bid auction, fail otherwise
+  /* At least two distinct bidders are needed to run a second-bid auction. If
+   * there are fewer than two bidders, the auction must fail. Note that the list
+   * generator takes care of the no-bidders case by generating empty lists. */
 
   val genBidTooFewBidders = for {
     price <- arbitrary[Natural]
