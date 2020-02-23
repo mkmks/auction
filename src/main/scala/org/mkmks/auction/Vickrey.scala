@@ -16,18 +16,32 @@ object Vickrey {
     .zipWithIndex.map(bs => bs._1.map(Bid(_, bs._2))).flatten
 
   val auctionNaive = (bids: List[Bid]) => {
-    val ranking = bids.sortBy(_.price).reverse
-    val winner = ranking(0).bidderId
-    (ranking.dropWhile(_.bidderId == winner).head.price, winner)
+    if (bids.isEmpty)
+      None
+    else {
+      val ranking = bids.sortBy(_.price).reverse
+      val winner = ranking(0).bidderId
+      ranking.dropWhile(_.bidderId == winner) match {
+        case x :: _ => Some (x.price, winner)
+        case _ => None
+      }
+    }
   }
 
   val auctionSeasoned = (bids: List[Bid]) => {
-    val queue = new PriorityQueue() ++ bids
-    val winner = queue.max.bidderId
-    while (queue.max.bidderId == winner) {
-      queue.dequeue
+    if (bids.isEmpty)
+      None
+    else {
+      val queue = new PriorityQueue() ++ bids
+      val winner = queue.max.bidderId
+      while (queue.nonEmpty && queue.max.bidderId == winner) {
+        queue.dequeue
+      }
+      if (queue.nonEmpty)
+        Some (queue.max.price, winner)
+      else
+        None
     }
-    (queue.max.price, winner)
   }
 
 }
