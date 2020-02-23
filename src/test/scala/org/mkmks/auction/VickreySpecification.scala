@@ -2,7 +2,9 @@ package org.mkmks.auction
 
 import org.scalacheck.Properties
 import spire.math.Natural
+import Vickrey.pricesToBidList
 import Vickrey.auctionNaive
+import Vickrey.auctionSeasoned
 
 object VickreySpecification extends Properties("Vickrey") {
 
@@ -15,7 +17,9 @@ object VickreySpecification extends Properties("Vickrey") {
 
   val providedExampleOutcome = (Natural(130), 4)
 
-  property("providedExample") =
-    auctionNaive(providedExampleBids).equals(providedExampleOutcome)
+  property("providedExampleNaive") =
+    (auctionNaive compose pricesToBidList)(providedExampleBids).equals(providedExampleOutcome)
 
+  property("providedExampleSeasoned") =
+    (auctionSeasoned compose pricesToBidList)(providedExampleBids).equals(providedExampleOutcome)
 }
