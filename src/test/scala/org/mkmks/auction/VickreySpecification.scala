@@ -51,18 +51,25 @@ object VickreySpecification extends Properties("Vickrey") {
     n <- arbitrary[Int].suchThat (_ >= 0)
   } yield Natural(n))
 
-  val genBid = for {
+  /* When identical prices are bid, the auction behaviour is not specified. It
+   * isn't known then which of the two (or more) bidders who proposed the same
+   * price wins. When it's not the case, two different implementations of the
+   * auction should behave identically. */
+
+  val genBid = (numBidders: Int) =>  for {
     price <- arbitrary[Natural]
-    numBidders <- arbitrary[Int].suchThat (_ >= 0)
     bidderId <- Gen.choose(0, numBidders)
   } yield Bid(price, bidderId)
 
-  property("naiveSeasonedEquiv") = forAll (listOf(genBid)) { bids: List[Bid] =>
-      auctionNaive(bids).equals(auctionSeasoned(bids))
+  val distinctPrices = (bids: List[Bid]) => {
+    val prices = bids.map(_.price)
+    prices == prices.distinct
   }
 
-  property("shuffleSeasoned") = exists(listOf(genBid)) { bids: List[Bid] =>
-    auctionSeasoned(bids) != auctionSeasoned(shuffle(bids))
+  property("naiveSeasonedEquivDistinctBids") = forAll(arbitrary[Int].suchThat (_ >= 2)) {
+    numBidders: Int => forAll (listOf(genBid(numBidders)) suchThat distinctPrices) {
+      bids: List[Bid] => auctionNaive(bids).equals(auctionSeasoned(bids))
+    }
   }
 
 }
