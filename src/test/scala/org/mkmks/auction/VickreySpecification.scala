@@ -21,35 +21,42 @@ object VickreySpecification extends Properties("Vickrey") {
     List(Natural(105), Natural(115), Natural(90)),  // D
     List(Natural(132), Natural(135), Natural(140))) // E
 
+  val providedReservePrice = Natural(100)
+
   val providedExampleOutcome = (Natural(130), 4)
 
   property("providedExampleNaive") =
-    (auctionNaive compose pricesToBidList)(providedExampleBids).head
+    auctionNaive(providedReservePrice, pricesToBidList(providedExampleBids)).head
       .equals(providedExampleOutcome)
 
   property("providedExampleSeasoned") =
-    (auctionSeasoned compose pricesToBidList)(providedExampleBids).head
+    auctionSeasoned(providedReservePrice, pricesToBidList(providedExampleBids)).head
       .equals(providedExampleOutcome)
 
   /* At least two distinct bidders are needed to run a second-bid auction. If
    * there are fewer than two bidders, the auction must fail. Note that the list
    * generator takes care of the no-bidders case by generating empty lists. */
 
+  implicit lazy val arbNat: Arbitrary[Natural] = Arbitrary(for {
+    n <- arbitrary[Int].suchThat (_ >= 0)
+  } yield Natural(n))
+
   val genBidTooFewBidders = for {
     price <- arbitrary[Natural]
   } yield Bid(price, 0)
 
-  property("notEnoughBidsNaive") = forAll (listOf(genBidTooFewBidders))  {
-    bids: List[Bid] => auctionNaive(bids).isEmpty
+  property("notEnoughBidsNaive") = forAll { reservePrice: Natural =>
+    forAll (listOf(genBidTooFewBidders))  {
+      bids: List[Bid] => auctionNaive(reservePrice, bids).isEmpty
+    }
   }
 
-  property("notEnoughBidsSeasoned") = forAll (listOf(genBidTooFewBidders))  {
-    bids: List[Bid] => auctionSeasoned(bids).isEmpty
+  property("notEnoughBidsSeasoned") = forAll { reservePrice: Natural =>
+    forAll (listOf(genBidTooFewBidders))  {
+      bids: List[Bid] => auctionSeasoned(reservePrice, bids).isEmpty
+    }
   }
 
-  implicit lazy val arbNat: Arbitrary[Natural] = Arbitrary(for {
-    n <- arbitrary[Int].suchThat (_ >= 0)
-  } yield Natural(n))
 
   /* When identical prices are bid, the auction behaviour is not specified. It
    * isn't known then which of the two (or more) bidders who proposed the same
@@ -66,9 +73,12 @@ object VickreySpecification extends Properties("Vickrey") {
     prices == prices.distinct
   }
 
-  property("naiveSeasonedEquivDistinctBids") = forAll(arbitrary[Int].suchThat (_ >= 2)) {
-    numBidders: Int => forAll (listOf(genBid(numBidders)) suchThat distinctPrices) {
-      bids: List[Bid] => auctionNaive(bids).equals(auctionSeasoned(bids))
+  property("naiveSeasonedEquivDistinctBids") = forAll { reservePrice: Natural =>
+    forAll(arbitrary[Int].suchThat (_ >= 2)) {
+      numBidders: Int => forAll (listOf(genBid(numBidders)) suchThat distinctPrices) {
+        bids: List[Bid] => auctionNaive(reservePrice, bids)
+          .equals(auctionSeasoned(reservePrice, bids))
+      }
     }
   }
 

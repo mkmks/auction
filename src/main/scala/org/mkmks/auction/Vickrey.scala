@@ -15,13 +15,13 @@ object Vickrey {
   val pricesToBidList = (bids: List[List[Natural]]) => bids
     .zipWithIndex.map(bs => bs._1.map(Bid(_, bs._2))).flatten
 
-  val auctionNaive = (bids: List[Bid]) => {
+  val auctionNaive = (reservePrice: Natural, bids: List[Bid]) => {
     bids match {
       case _ :: _ => {
         val ranking = bids.sortBy(_.price).reverse
         val winner = ranking(0).bidderId
         ranking.dropWhile(_.bidderId == winner) match {
-          case x :: _ => Some (x.price, winner)
+          case x :: _ => Some (if (x.price > reservePrice) x.price else reservePrice, winner)
           case _ => None
         }
       }
@@ -29,7 +29,7 @@ object Vickrey {
     }
   }
 
-  val auctionSeasoned = (bids: List[Bid]) => {
+  val auctionSeasoned = (reservePrice: Natural, bids: List[Bid]) => {
     if (bids.nonEmpty) {
       val queue = new PriorityQueue() ++ bids
       val winner = queue.max.bidderId
@@ -37,7 +37,7 @@ object Vickrey {
         queue.dequeue
       }
       if (queue.nonEmpty)
-        Some (queue.max.price, winner)
+        Some (if (queue.max.price > reservePrice) queue.max.price else reservePrice, winner)
       else None
     }
     else None
