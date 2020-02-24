@@ -1,21 +1,71 @@
 package org.mkmks.auction
 
-
-/* using natural numbers instead of integers avoids the need to test prices for positivity */
 import spire.math.Natural
 import spire.compat.ordering
 import collection.mutable.PriorityQueue
+import fs2.{Stream, Pure}
 
 object Vickrey {
+
+  /* Here, we implement a sealed-bid, second-price auction, or a Vickrey auction,
+   * in several attempts, clarifying our reasoning in steps.
+
+   An auction is a decision procedure defined on bids. First, we must clarify
+   what a "bid" is.
+   
+   The provided problem statement represents bids as lists of prices given by
+   bidders but such a representation isn't granular enough: we'll need to
+   compare prices that are bid by different bidders.
+
+   An individual bid is no more than a product of a price (that can't go below
+   zero, therefore it's a natural number) and a name of a bidder who put
+   it forward.
+
+   There can be many ways to represent names. One operation on names that we'll
+   need is equality. Representation of names as integers has that operation, and
+   we don't care yet how those integers are assigned. We only care if they're
+   different for different bidders.
+   */
 
   case class Bid(price: Natural, bidderId: Int);
 
   implicit val BidOrdering = Ordering.by[Bid, Natural](_.price)
 
+  /* Having agreed that the auction will work with collections of individual Bids,
+   * we'll need a way to go from lists of lists of prices, as exemplified in the
+   * problem statement, to lists of Bids. The function we implement for this
+   * need must take care of choosing bidders' names. Again, they will be
+   * integers, and we don't care yet for more than their distinctness. */
+
   val pricesToBidList = (bids: List[List[Natural]]) => bids
     .zipWithIndex.map(bs => bs._1.map(Bid(_, bs._2))).flatten
 
-  val auctionNaive = (reservePrice: Natural, bids: List[Bid]) => {
+  /* Having chosen a list of Bids as the data representation, it's only natural to
+   * apply some freshman-year functional programming to it.
+
+   The outcome of a Vickrey auction is a pair of things: the second-largest bid
+   price and the name of a bidder who bid the largest bid price. At the first
+   glance, sorting the list of Bids in the price-descending order will let us
+   find both: the sorted list's head will have the hame of the top bidder, and
+   after popping enough top bidder bids from the list we'll get to the runner-up
+   bidder and his second largest bid price.
+
+   The time and space complexities of this implementation is dominated by choice
+   of the sorting procedure, which often will be O(n*log(n)). Scala uses Timsort
+   as the default sort on its collections. Its worst- and average case time
+   complexities are O(n*log(n)), going down to O(n) in the best case. As Scala
+   builds arrays from collections in its standard library collection sort, the
+   space complexity is O(n).
+
+   All other parts of this implementation, such as transforming lists of lists
+   of prices to lists of Bids, have time complexity of O(n) or better.
+
+   Before we move on to explore if there can be a more efficient implementation,
+   there are some corner cases to take care of.
+
+   */
+
+  val auctionLittle = (reservePrice: Natural, bids: List[Bid]) => {
     bids match {
       case _ :: _ => {
         val ranking = bids.sortBy(_.price).reverse
@@ -41,6 +91,23 @@ object Vickrey {
       else None
     }
     else None
+  }
+
+  // FIXME: Shouldn't the Ordering implicit defined above help here?
+
+  val maxTwo = (acc: (Bid, Bid), bid: Bid) => {
+    if (bid.price >= acc._1.price)
+      (bid, acc._1)
+    else if (bid.price >= acc._2.price)
+      (acc._1, bid)
+    else acc
+  }
+
+  val auctionReasoned = (reservePrice: Natural, bids: Stream[Pure, Bid]) => {
+    val emptyAcc = (Bid(Natural(0), 0), Bid(Natural(0), 0)) 
+    val topBids = bids.fold(emptyAcc)(maxTwo).toList.head
+    if (topBids._2.price > reservePrice)
+      (topBids._2.price, topBids._1.bidderId)
   }
 
 }
