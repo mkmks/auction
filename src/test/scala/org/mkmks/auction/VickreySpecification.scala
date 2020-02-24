@@ -8,7 +8,8 @@ import org.scalacheck.Arbitrary
 import org.scalacheck.Arbitrary.arbitrary
 
 import spire.math.Natural
-import Vickrey.{Bid, pricesToBidList, auctionNaive, auctionSeasoned}
+import fs2.Stream.emits
+import Vickrey.{Bid, pricesToBidList, auctionLittle, auctionSeasoned, auctionReasoned}
 
 object VickreySpecification extends Properties("Vickrey") {
 
@@ -25,8 +26,8 @@ object VickreySpecification extends Properties("Vickrey") {
 
   val providedExampleOutcome = (Natural(130), 4)
 
-  property("providedExampleNaive") =
-    auctionNaive(providedReservePrice, pricesToBidList(providedExampleBids)).head
+  property("providedExampleLittle") =
+    auctionLittle(providedReservePrice, pricesToBidList(providedExampleBids)).head
       .equals(providedExampleOutcome)
 
   property("providedExampleSeasoned") =
@@ -45,9 +46,9 @@ object VickreySpecification extends Properties("Vickrey") {
     price <- arbitrary[Natural]
   } yield Bid(price, 0)
 
-  property("notEnoughBidsNaive") = forAll { reservePrice: Natural =>
+  property("notEnoughBidsLittle") = forAll { reservePrice: Natural =>
     forAll (listOf(genBidTooFewBidders))  {
-      bids: List[Bid] => auctionNaive(reservePrice, bids).isEmpty
+      bids: List[Bid] => auctionLittle(reservePrice, bids).isEmpty
     }
   }
 
@@ -56,7 +57,6 @@ object VickreySpecification extends Properties("Vickrey") {
       bids: List[Bid] => auctionSeasoned(reservePrice, bids).isEmpty
     }
   }
-
 
   /* When identical prices are bid, the auction behaviour is not specified. It
    * isn't known then which of the two (or more) bidders who proposed the same
@@ -76,8 +76,17 @@ object VickreySpecification extends Properties("Vickrey") {
   property("naiveSeasonedEquivDistinctBids") = forAll { reservePrice: Natural =>
     forAll(arbitrary[Int].suchThat (_ >= 2)) {
       numBidders: Int => forAll (listOf(genBid(numBidders)) suchThat distinctPrices) {
-        bids: List[Bid] => auctionNaive(reservePrice, bids)
+        bids: List[Bid] => auctionLittle(reservePrice, bids)
           .equals(auctionSeasoned(reservePrice, bids))
+      }
+    }
+  }
+
+  property("naiveReasonedEquivDistinctBids") = forAll { reservePrice: Natural =>
+    forAll(arbitrary[Int].suchThat (_ >= 2)) {
+      numBidders: Int => forAll (listOf(genBid(numBidders)) suchThat distinctPrices) {
+        bids: List[Bid] => auctionLittle(reservePrice, bids)
+          .equals(auctionReasoned(reservePrice, emits(bids)))
       }
     }
   }
