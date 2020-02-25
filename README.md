@@ -45,6 +45,10 @@ as integer numbers (that is, without fractional parts) and separated by
 commas. Empty lines are interpreted as bidders who are present during the
 auction but don't make bids.
 
+Caveat: command-line parameter validation isn't implemented yet! Beware of
+uncaught exceptions if the reserve price isn't a natural number or the input
+file isn't a path!
+
 Discussion
 ----------
 
