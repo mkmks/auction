@@ -5,43 +5,47 @@ import spire.compat.ordering
 import collection.mutable.PriorityQueue
 import fs2.{Stream, Pure}
 
+  /** Here, we implement a sealed-bid, second-price auction, or a Vickrey auction,
+    in several attempts, clarifying our reasoning in steps. */
+
 object Vickrey {
 
-  /* Here, we implement a sealed-bid, second-price auction, or a Vickrey auction,
-   * in several attempts, clarifying our reasoning in steps.
-
-   An auction is a decision procedure defined on bids. First, we must clarify
+   /* An auction is a decision procedure defined on bids. First, we must clarify
    what a "bid" is.
    
    The provided problem statement represents bids as lists of prices given by
    bidders but such a representation isn't granular enough: we'll need to
-   compare prices that are bid by different bidders.
+   compare prices that are bid by different bidders. */
 
-   An individual bid is no more than a product of a price (that can't go below
-   zero, therefore it's a natural number) and a name of a bidder who put
-   it forward.
+   /** An individual bid is no more than a product of a price and a name of a
+   bidder who put it forward.
 
-   There can be many ways to represent names. One operation on names that we'll
-   need is equality. Representation of names as integers has that operation, and
-   we don't care yet how those integers are assigned. We only care if they're
-   different for different bidders.
+     @constructor Creates a new bid with a price and a name of the bidder.
+     @param price The bid price. It can't go below zero, therefore it's a
+   natural number.
+     @param bidderId There can be many ways to represent names. One operation on
+   names that we'll need is equality. Representation of names as integers has
+   that operation, and we don't care yet how those integers are assigned. We
+   only care if they're different for different bidders.
    */
 
-  case class Bid(price: Natural, bidderId: Int);
+  final case class Bid(price: Natural, bidderId: Int);
 
   implicit val BidOrdering = Ordering.by[Bid, Natural](_.price)
 
-  /* Having agreed that the auction will work with collections of individual Bids,
-   * we'll need a way to go from lists of lists of prices, as exemplified in the
-   * problem statement, to lists of Bids. The function we implement for this
-   * need must take care of choosing bidders' names. Again, they will be
-   * integers, and we don't care yet for more than their distinctness. */
+  /** Takes lists of lists of prices to lists of [[Bid]]s.
+
+    This function implicitly takes care of choosing bidders' names. They will be
+integers, and we don't care yet for more than their distinctness. */
 
   val pricesToBidList = (bids: List[List[Natural]]) => bids
     .zipWithIndex.map(bs => bs._1.map(Bid(_, bs._2))).flatten
 
-  /* Having chosen a list of Bids as the data representation, it's only natural to
-   * apply some freshman-year functional programming to it.
+  /** Determines the auction outcome given a list of [[Bid]]s and a reserve price,
+    * by sorting a list.
+
+   Having chosen a list of [[Bid]]s as the data representation, it's only
+   natural to apply some freshman-year functional programming to it.
 
    The outcome of a Vickrey auction is a pair of things: the second-largest bid
    price and the name of a bidder who bid the largest bid price. At the first
@@ -51,21 +55,21 @@ object Vickrey {
    bidder and his second largest bid price.
 
    The time and space complexities of this implementation is dominated by choice
-   of the sorting procedure, which often will be O(n*log(n)). Scala uses Timsort
-   as the default sort on its collections. Its worst- and average case time
-   complexities are O(n*log(n)), going down to O(n) in the best case. As Scala
-   builds arrays from collections in its standard library collection sort, the
-   space complexity is O(n).
+   of the sorting procedure, which often will be `O(n*log(n))`. Scala uses
+   Timsort as the default sort on its collections. Its worst- and average case
+   time complexities are `O(n*log(n))`, going down to `O(n)` in the best
+   case. As Scala builds arrays from collections in its standard library
+   collection sort, the space complexity is `O(n)`.
 
    All other parts of this implementation, such as transforming lists of lists
-   of prices to lists of Bids, have time complexity of O(n) or better.
+   of prices to lists of Bids, have time complexity of `O(n)` or better.
 
-   Before we move on to explore if there can be a more efficient implementation,
-   there are some corner cases to take care of.
+   @param reservePrice The minimum price for which the auction item can be sold.
+   @param bids The list of [[Bid]]s to run the auction on.
 
    */
 
-  val auctionLittle = (reservePrice: Natural, bids: List[Bid]) => {
+  def auctionLittle(reservePrice: Natural, bids: List[Bid]): Option[(Natural, Int)] =
     bids match {
       case _ :: _ => {
         val ranking = bids.sortBy(_.price).reverse
@@ -77,9 +81,16 @@ object Vickrey {
       }
       case _ => None
     }
-  }
 
-  val auctionSeasoned = (reservePrice: Natural, bids: List[Bid]) => {
+  /** Determines the auction outcome given a list of [[Bid]]s and a reserve price,
+    * by building a priority queue.
+
+    @param reservePrice The minimum price for which the auction item can be sold.
+    @param bids The list of [[Bid]]s to run the auction on.
+
+   */
+
+  def auctionSeasoned(reservePrice: Natural, bids: List[Bid]): Option[(Natural, Int)] =
     if (bids.nonEmpty) {
       val queue = new PriorityQueue() ++ bids
       val winner = queue.max.bidderId
@@ -91,26 +102,31 @@ object Vickrey {
       else None
     }
     else None
-  }
 
-  /* We only care about the two top bids made. We aim to represent no more and no
-   * less, so we introduce a convenient data structure. It must maintain an
-   * invariant that if it stores two bids, they're ordered by price. */
+  /** Keeps all the information to report the auction outcome if there weren't any
+    * more bids than those already processed.
 
-  sealed trait AuctionState
+     We only care about the two top bids made. We aim to represent no more and
+     no less, so we introduce a convenient data structure. It must maintain an
+     invariant that if it stores two bids, they're ordered by price. */
+
+  sealed abstract class AuctionState
 
   object AuctionState {
-    final case class NoBids() extends AuctionState
-    final case class OneBid(bid: Bid) extends AuctionState
-    final case class TwoOrMoreBids(bid1: Bid, bid2: Bid) extends AuctionState
+    final case object NoBids extends AuctionState
+    final case class  OneBid(bid: Bid) extends AuctionState
+    final case class  TwoOrMoreBids(bid1: Bid, bid2: Bid) extends AuctionState
   }
 
   import AuctionState._
 
   // FIXME: use the Ordering implicit defined above to do price comparison
 
+  /** Given two top bids in a running auction, determines if an incoming bid
+    * should deprive any of them of their place. */
+
   val updateAuctionState = (acc: AuctionState, newbid: Bid) => acc match {
-    case NoBids() => AuctionState.OneBid(newbid)
+    case NoBids => OneBid(newbid)
     case OneBid(oldbid: Bid) =>
       if (oldbid.price < newbid.price)
         TwoOrMoreBids(newbid, oldbid)
@@ -124,14 +140,23 @@ object Vickrey {
       else acc
   }
 
-  val auctionReasoned = (reservePrice: Natural, bids: Stream[Pure, Bid]) =>
-    bids.fold(NoBids(): AuctionState)(updateAuctionState).toList.head match {
-      case NoBids() => None
+  /** Determines the auction outcome given a list of [[Bid]]s and a reserve price,
+    * by folding a stream.
+
+    @param reservePrice The minimum price for which the auction item can be sold.
+    @param bids The list of [[Bid]]s to run the auction on.
+
+   */
+
+  def auctionReasoned(reservePrice: Natural,
+                              bids: Stream[Pure, Bid]): Option[(Natural, Int)] =
+    bids.fold(NoBids: AuctionState)(updateAuctionState).toList.head match {
+      case NoBids => None
       case OneBid(bid) =>
         Some(if (bid.price > reservePrice) bid.price else reservePrice, bid.bidderId)
       case TwoOrMoreBids(bid1, bid2) =>
-        Some((if (bid2.price > reservePrice) bid2.price else reservePrice,
-          bid1.bidderId))
+        Some(if (bid2.price > reservePrice) bid2.price else reservePrice,
+          bid1.bidderId)
     }
 
 }
