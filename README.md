@@ -34,11 +34,11 @@ the `Vickrey` object:
 
 To run the example command-line application: 
 
-	sbt "run inputfile"
+	sbt "run reservePrice inputFile"
 	
 For example,
 
-	sbt "run examples/Example1.csv"
+	sbt 100 "run examples/Example1.csv"
 
 Each line of the input file must contain bid prices from a single bidder given
 as integer numbers (that is, without fractional parts) and separated by
