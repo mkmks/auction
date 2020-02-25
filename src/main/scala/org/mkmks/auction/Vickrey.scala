@@ -36,7 +36,11 @@ object Vickrey {
   /** Takes lists of lists of prices to lists of [[Bid]]s.
 
     This function implicitly takes care of choosing bidders' names. They will be
-integers, and we don't care yet for more than their distinctness. */
+integers, and we don't care yet for more than their distinctness.
+
+    Time complexity: `O(n)`
+    
+    */
 
   val pricesToBidList = (bids: List[List[Natural]]) => bids
     .zipWithIndex.map(bs => bs._1.map(Bid(_, bs._2))).flatten
@@ -61,9 +65,6 @@ integers, and we don't care yet for more than their distinctness. */
    case. As Scala builds arrays from collections in its standard library
    collection sort, the space complexity is `O(n)`.
 
-   All other parts of this implementation, such as transforming lists of lists
-   of prices to lists of Bids, have time complexity of `O(n)` or better.
-
    @param reservePrice The minimum price for which the auction item can be sold.
    @param bids The list of [[Bid]]s to run the auction on.
 
@@ -84,6 +85,17 @@ integers, and we don't care yet for more than their distinctness. */
 
   /** Determines the auction outcome given a list of [[Bid]]s and a reserve price,
     * by building a priority queue.
+
+    The number of bids in an auction can be quite large, and collecting them all
+    in a list for sorting feels suboptimal. The list might be larger than the
+    available memory! With that in mind, it becomes natural to throw some
+    sophomore-year data structures at the problem.
+
+    The equivalence between sorting algorithms and priority queues is
+    well-known. By going from sorting a list of [[Bid]]s to inserting them into
+    a priority queue we can cut the time complexity down from `O(n*log(n))` to
+    `O(n)`, thanks to insertion in `O(1)` amortized time that priority queues
+    implemented, say, with a Fibonacci heap, have.
 
     @param reservePrice The minimum price for which the auction item can be sold.
     @param bids The list of [[Bid]]s to run the auction on.
@@ -123,7 +135,11 @@ integers, and we don't care yet for more than their distinctness. */
   // FIXME: use the Ordering implicit defined above to do price comparison
 
   /** Given two top bids in a running auction, determines if an incoming bid
-    * should deprive any of them of their place. */
+    * should deprive any of them of their place.
+
+    Time complexity: O(1)
+
+    */
 
   val updateAuctionState = (acc: AuctionState, newbid: Bid) => acc match {
     case NoBids => OneBid(newbid)
