@@ -28,9 +28,9 @@ How to use
 ----------
 
 To use any of the three implementations in your own code, it suffices to import
-the fields of the `Vickrey` object:
+the `Vickrey` object:
 
-	import org.mkmks.auction.Vickrey._
+	import org.mkmks.auction.Vickrey
 
 To run the example command-line application: 
 
