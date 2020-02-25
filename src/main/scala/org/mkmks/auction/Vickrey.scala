@@ -29,7 +29,7 @@ object Vickrey {
    only care if they're different for different bidders.
    */
 
-  final case class Bid(price: Natural, bidderId: Int);
+  final case class Bid(price: Natural, bidderId: Long);
 
   implicit val BidOrdering = Ordering.by[Bid, Natural](_.price)
 
@@ -70,7 +70,7 @@ integers, and we don't care yet for more than their distinctness.
 
    */
 
-  def auctionLittle(reservePrice: Natural, bids: List[Bid]): Option[(Natural, Int)] =
+  def auctionLittle(reservePrice: Natural, bids: List[Bid]): Option[(Natural, Long)] =
     bids match {
       case _ :: _ => {
         val ranking = bids.sortBy(_.price).reverse
@@ -102,7 +102,7 @@ integers, and we don't care yet for more than their distinctness.
 
    */
 
-  def auctionSeasoned(reservePrice: Natural, bids: List[Bid]): Option[(Natural, Int)] =
+  def auctionSeasoned(reservePrice: Natural, bids: List[Bid]): Option[(Natural, Long)] =
     if (bids.nonEmpty) {
       val queue = new PriorityQueue() ++ bids
       val winner = queue.max.bidderId
@@ -156,23 +156,34 @@ integers, and we don't care yet for more than their distinctness.
       else acc
   }
 
+  /** Tells what's the selling price and who's the winner (if anybody), given that
+    * the auction stops in the provided state.
+
+    @param as The auction state.
+    @param reservePrice The reserve price.
+    
+    */
+
+  val interpretAuctionState = (as: AuctionState, reservePrice: Natural) => as match {
+    case NoBids => None
+    case OneBid(bid) =>
+      Some(if (bid.price > reservePrice) bid.price else reservePrice, bid.bidderId)
+    case TwoOrMoreBids(bid1, bid2) =>
+      Some(if (bid2.price > reservePrice) bid2.price else reservePrice,
+        bid1.bidderId)
+  }
+
   /** Determines the auction outcome given a list of [[Bid]]s and a reserve price,
     * by folding a stream.
 
     @param reservePrice The minimum price for which the auction item can be sold.
     @param bids The list of [[Bid]]s to run the auction on.
-
-   */
+    
+    */
 
   def auctionReasoned(reservePrice: Natural,
-                              bids: Stream[Pure, Bid]): Option[(Natural, Int)] =
-    bids.fold(NoBids: AuctionState)(updateAuctionState).toList.head match {
-      case NoBids => None
-      case OneBid(bid) =>
-        Some(if (bid.price > reservePrice) bid.price else reservePrice, bid.bidderId)
-      case TwoOrMoreBids(bid1, bid2) =>
-        Some(if (bid2.price > reservePrice) bid2.price else reservePrice,
-          bid1.bidderId)
-    }
+                              bids: Stream[Pure, Bid]): Option[(Natural, Long)] =
+    interpretAuctionState(bids.fold(NoBids: AuctionState)(updateAuctionState).toList.head,
+      reservePrice)
 
 }
