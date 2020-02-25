@@ -28,7 +28,10 @@ object Main extends IOApp {
     } else {
       bids(args(1))
         .fold(NoBids: AuctionState)(updateAuctionState)
-        .map(x => println(interpretAuctionState(x, Natural(args(0).toInt))))
+        .map(x => interpretAuctionState(x, Natural(args(0).toInt))
+          .fold(println("There was no winner."))
+          (y => println("Bidder " + y._2 + " buys the item at the price " + y._1))
+        )
         .compile.drain.as(ExitCode.Success)
     }
 }
