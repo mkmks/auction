@@ -93,21 +93,45 @@ object Vickrey {
     else None
   }
 
-  // FIXME: Shouldn't the Ordering implicit defined above help here?
+  /* We only care about the two top bids made. We aim to represent no more and no
+   * less, so we introduce a convenient data structure. It must maintain an
+   * invariant that if it stores two bids, they're ordered by price. */
 
-  val maxTwo = (acc: (Bid, Bid), bid: Bid) => {
-    if (bid.price >= acc._1.price)
-      (bid, acc._1)
-    else if (bid.price >= acc._2.price)
-      (acc._1, bid)
-    else acc
+  sealed trait AuctionState
+
+  object AuctionState {
+    final case class NoBids() extends AuctionState
+    final case class OneBid(bid: Bid) extends AuctionState
+    final case class TwoOrMoreBids(bid1: Bid, bid2: Bid) extends AuctionState
   }
 
-  val auctionReasoned = (reservePrice: Natural, bids: Stream[Pure, Bid]) => {
-    val emptyAcc = (Bid(Natural(0), 0), Bid(Natural(0), 0)) 
-    val topBids = bids.fold(emptyAcc)(maxTwo).toList.head
-    if (topBids._2.price > reservePrice)
-      (topBids._2.price, topBids._1.bidderId)
+  import AuctionState._
+
+  // FIXME: use the Ordering implicit defined above to do price comparison
+
+  val updateAuctionState = (acc: AuctionState, newbid: Bid) => acc match {
+    case NoBids() => AuctionState.OneBid(newbid)
+    case OneBid(oldbid: Bid) =>
+      if (oldbid.price < newbid.price)
+        TwoOrMoreBids(newbid, oldbid)
+      else
+        TwoOrMoreBids(oldbid, newbid)
+    case TwoOrMoreBids(bid1, bid2) =>
+      if (bid1.price < newbid.price && bid2.price < newbid.price)
+        TwoOrMoreBids(newbid, bid1)
+      else if (bid1.price > newbid.price && bid2.price < newbid.price)
+        TwoOrMoreBids(bid1, newbid)
+      else acc
   }
+
+  val auctionReasoned = (reservePrice: Natural, bids: Stream[Pure, Bid]) =>
+    bids.fold(NoBids(): AuctionState)(updateAuctionState).toList.head match {
+      case NoBids() => None
+      case OneBid(bid) =>
+        Some(if (bid.price > reservePrice) bid.price else reservePrice, bid.bidderId)
+      case TwoOrMoreBids(bid1, bid2) =>
+        Some((if (bid2.price > reservePrice) bid2.price else reservePrice,
+          bid1.bidderId))
+    }
 
 }
