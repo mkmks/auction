@@ -153,11 +153,11 @@ integers, and we don't care yet for more than their distinctness.
     // four subcases: bid1 is replaced, bid1 goes back, bid2 is replaced, or the
     // new bid is ignored
     case TwoOrMoreBids(bid1, bid2) =>
-      if (newbid.price > bid1.price && bid1.bidderId == newbid.bidderId)
+      if (newbid.price >= bid1.price && bid1.bidderId == newbid.bidderId)
         TwoOrMoreBids(newbid, bid2)
-      else if (newbid.price > bid1.price && bid1.bidderId != newbid.bidderId)
+      else if (newbid.price >= bid1.price && bid1.bidderId != newbid.bidderId)
         TwoOrMoreBids(newbid, bid1)
-      else if (newbid.price > bid2.price && bid2.bidderId == newbid.bidderId)
+      else if (newbid.price >= bid2.price && bid1.bidderId != newbid.bidderId)
         TwoOrMoreBids(bid1, newbid)
       else acc
   }

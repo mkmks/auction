@@ -156,13 +156,22 @@ object VickreySpecification extends Properties("Vickrey") {
       }
     }
 
-  // needed to run folds in parallel, exposes "non-determinism"
+  // required to run folds in parallel, shows that winning price is determined
+  // deterministically while the winner is not
   property("updateAuctionStateAssociative") =
-    forAll (genBidders) { bidders: List[Int] =>
-      forAll (genAuctionState(bidders))_ { ac: AuctionState =>
-        forAll ((genBid(bidders), genBid(bidders))) { (bid1: Bid, bid2: Bid) =>
-          updateAuctionState(updateAuctionState(ac, bid1), bid2)
-          == updateAuctionState(updateAuctionState(ac, bid2), bid1)
+    forAllNoShrink (genBidders) { bidders: List[Int] =>
+      forAll (genAuctionState(bidders)) { ac: AuctionState =>
+        forAll (genBid(bidders), genBid(bidders)) { (bid1: Bid, bid2: Bid) =>
+          val outcome1 = updateAuctionState(updateAuctionState(ac, bid1), bid2)
+          val outcome2 = updateAuctionState(updateAuctionState(ac, bid2), bid1)
+            (outcome1, outcome2) match {
+            case (TwoOrMoreBids(bid11, bid12), TwoOrMoreBids(bid21, bid22)) =>
+              bid12.price == bid22.price
+            case (OneBid(bid1), OneBid(bid2)) =>
+              bid1.price == bid2.price
+            case (NoBids, NoBids) => true
+            case _ => false
+          }
         }
       }
     }
