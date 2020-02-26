@@ -189,12 +189,13 @@ integers, and we don't care yet for more than their distinctness.
     less, so we introduce a convenient data structure, [[AuctionState]]. It
     must maintain the folowing invariants:
 
-     1. if it doesn't store bids, no incoming bid will be thrown away
+      1. if it doesn't store bids, no incoming bid will be thrown away
 
-     2. if it stores two bids, they're ordered by price and have distinct
-    bidders names
+      2. if it stores two bids, it can't go back to one or zero
 
-     3. if it stores two bids, it can't go back to one or zero
+      3. if it stores two bids, they're ordered by price
+    
+      4. if it stores two bids, they have distinct bidders names
 
     Having designed the [[AuctionState]] data structure and defined the insert
     operation for it, `updateAuctionState`, we can express the auction as a
