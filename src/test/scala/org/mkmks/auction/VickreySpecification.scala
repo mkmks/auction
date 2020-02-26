@@ -39,34 +39,9 @@ object VickreySpecification extends Properties("Vickrey") {
     auctionReasoned(providedReservePrice, emits(pricesToBidList(providedExampleBids))).head
       .equals(providedExampleOutcome)
 
-  /* At least two distinct bidders are needed to run a second-bid auction. If
-   * there are fewer than two bidders, the auction must fail. Note that the list
-   * generator takes care of the no-bidders case by generating empty lists. */
-
   implicit lazy val arbNat: Arbitrary[Natural] = Arbitrary(for {
     n <- arbitrary[Int].suchThat (_ >= 0)
   } yield Natural(n))
-
-  val genBidTooFewBidders = for {
-    price <- arbitrary[Natural]
-  } yield Bid(price, 0)
-
-  property("notEnoughBidsLittle") = forAll { reservePrice: Natural =>
-    forAll (listOf(genBidTooFewBidders))  {
-      bids: List[Bid] => auctionLittle(reservePrice, bids).isEmpty
-    }
-  }
-
-  property("notEnoughBidsSeasoned") = forAll { reservePrice: Natural =>
-    forAll (listOf(genBidTooFewBidders))  {
-      bids: List[Bid] => auctionSeasoned(reservePrice, bids).isEmpty
-    }
-  }
-
-  /* When identical prices are bid, the auction behaviour is not specified. It
-   * isn't known then which of the two (or more) bidders who proposed the same
-   * price wins. When it's not the case, two different implementations of the
-   * auction should behave identically. */
 
   val genBidders = nonEmptyListOf(arbitrary[Int]).map(_.distinct)
 
