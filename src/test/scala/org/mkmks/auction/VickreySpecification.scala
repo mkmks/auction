@@ -7,6 +7,7 @@ import org.scalacheck.Gen._
 import org.scalacheck.Arbitrary
 import org.scalacheck.Arbitrary.arbitrary
 
+import scala.util.Random
 import spire.math.Natural
 import fs2.Stream.emits
 import Vickrey._
@@ -49,9 +50,6 @@ object VickreySpecification extends Properties("Vickrey") {
     price <- arbitrary[Natural]
     bidderId <- oneOf(bidders)
   } yield Bid(price, bidderId)
-
-  val genDistinctBids = (bidders: List[Int]) =>
-    listOf(genBid(bidders)).map(_.distinctBy(_.price))
 
   val genNoBids = const(NoBids)
 
@@ -113,7 +111,7 @@ object VickreySpecification extends Properties("Vickrey") {
       }
     }
 
-  // required to run folds in parallel, shows that winning price is determined
+  // required to run folds in parallel, shows that winning price is known
   // deterministically while the winner is not
   property("updateAuctionStateAssociative") =
     forAllNoShrink (genBidders) { bidders: List[Int] =>
@@ -132,5 +130,19 @@ object VickreySpecification extends Properties("Vickrey") {
         }
       }
     }
-  
+
+  // when all bid prices are distinct, the winner is known deterministically as well
+
+  val genDistinctBids = (bidders: List[Int]) =>
+    listOf(genBid(bidders)).map(_.distinctBy(_.price))
+
+  property("allBidPricesDistinct") =
+    forAll { reservePrice: Natural =>
+      forAllNoShrink (genBidders) { bidders: List[Int] =>
+        forAll (genDistinctBids(bidders)) { bids: List[Bid] =>
+          auctionReasoned(reservePrice, emits(bids))
+            .equals(auctionReasoned(reservePrice, emits(Random.shuffle(bids))))
+        }
+      }
+    }
 }
