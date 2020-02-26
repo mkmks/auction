@@ -60,6 +60,22 @@ concepts, building gradually on older ones, and culminates in an exercise in
 mechanized reasoning, we discover and write down, step by step, the properties
 that a robust Vickrey auction implementation ought to have.
 
+The implementation on which we build our example application is in its essence
+an associative fold over a stream of bids. It's easy to reason about
+mathematically which makes it easy to test and to scale. Having identified
+corner cases, such as as situations where there aren't enough bidders or where
+bidders are at a draw, we could even backport handling of these corner case to
+the two first implementations.
+
+Interestingly, the code readability of the two first implementations, meant to
+be "simple", suffered a significant decrease after accounting for the found
+corner cases because bidding rules became intertwined with collection
+processing. On the other hand, the associative fold implementation remains
+highly readable because of isolation of bidding rules in the associate operator.
+
+Read more about our design decisions in the accompanying Scaladoc:
+
+	sbt doc
 
 Future work
 -----------
