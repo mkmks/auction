@@ -78,7 +78,7 @@ Interestingly, the code readability of the two first implementations, meant to
 be "simple", suffered a significant decrease after accounting for the found
 corner cases because bidding rules became intertwined with collection
 processing. On the other hand, the associative fold implementation remains
-highly readable because of isolation of bidding rules in the associate operator.
+highly readable because of isolation of bidding rules in the fold operator.
 
 Read more about our design decisions in the accompanying Scaladoc:
 
