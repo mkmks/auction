@@ -133,6 +133,20 @@ integers, and we don't care yet for more than their distinctness.
   /** Given two top bids in a running auction, determines if an incoming bid
     * should deprive any of them of their place.
 
+    In order for the fold to be parallelised, an additional property should be
+    proved about [[updateAuctionState]]. It must be an associative operator,
+    that is, the order of adding new bids to [[AuctionState]] shouldn't matter
+    for the result.
+
+    A nice bonus of proving the associative property of this function is that
+    its somewhat complicated branch structure becomes well-covered with tests.
+
+    However, the associative property can only be proven assuming equality of
+    [[AuctionState]]s up to bidders' names. In order to maintain associativity,
+    we overwrite bids with prices equal to those made by other bidders
+    previously, thus making the later bids more likely to decide the auction
+    outcome.
+
     Time complexity: O(1)
 
     */
@@ -205,13 +219,8 @@ integers, and we don't care yet for more than their distinctness.
     is that it scales easily. The bids can be then stored in distributed
     collection (for example, in a `Stream` provided by the `fs2` library) which
     can be folded in parallel, bringing the time complexity to `O(log(n))` (the
-    depth of the fold evaluation tree) under ideal scheduling.
-
-    In order for the fold to be parallelised, an additional property should be
-    proved about [[updateAuctionState]]. It must be an associative operator,
-    that is, the order of adding new bids to [[AuctionState]] shouldn't matter
-    for the result. We discuss the matter further in the accompanying README
-    file.
+    depth of the fold evaluation tree) under ideal scheduling. Read more about
+    it under [[updateAuctionState]].
 
     @param reservePrice The minimum price for which the auction item can be sold.
     @param bids The list of [[Bid]]s to run the auction on.
