@@ -142,16 +142,26 @@ integers, and we don't care yet for more than their distinctness.
     */
 
   val updateAuctionState = (acc: AuctionState, newbid: Bid) => acc match {
+    // one subcase: the new bid enters the queue
     case NoBids => OneBid(newbid)
+    // four subcases: the old bid is replaced, the new bid goes front/back, or
+    // the new bid is ignored
     case OneBid(oldbid: Bid) =>
-      if (oldbid.price < newbid.price)
+      if (newbid.price > oldbid.price && oldbid.bidderId == newbid.bidderId)
+        OneBid(newbid)
+      else if (newbid.price > oldbid.price && oldbid.bidderId != newbid.bidderId)
         TwoOrMoreBids(newbid, oldbid)
-      else
+      else if (newbid.price <= oldbid.price && oldbid.bidderId != newbid.bidderId)
         TwoOrMoreBids(oldbid, newbid)
+      else acc
+    // four subcases: bid1 is replaced, bid1 goes back, bid2 is replaced, or the
+    // new bid is ignored
     case TwoOrMoreBids(bid1, bid2) =>
-      if (bid1.price < newbid.price && bid2.price < newbid.price)
+      if (newbid.price > bid1.price && bid1.bidderId == newbid.bidderId)
+        TwoOrMoreBids(newbid, bid2)
+      else if (newbid.price > bid1.price && bid1.bidderId != newbid.bidderId)
         TwoOrMoreBids(newbid, bid1)
-      else if (bid1.price > newbid.price && bid2.price < newbid.price)
+      else if (newbid.price > bid2.price && bid2.bidderId == newbid.bidderId)
         TwoOrMoreBids(bid1, newbid)
       else acc
   }
