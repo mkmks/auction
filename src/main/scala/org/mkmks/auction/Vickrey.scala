@@ -94,7 +94,7 @@ integers, and we don't care yet for more than their distinctness.
     The equivalence between sorting algorithms and priority queues is
     well-known. By going from sorting a list of [[Bid]]s to inserting them into
     a priority queue we can cut the time complexity down from `O(n*log(n))` to
-    `O(n)`, thanks to insertion in `O(1)` amortized time that priority queues
+    `O(n)`, thanks to insertion in `O(1)` amortised time that priority queues
     implemented, say, with a Fibonacci heap, have.
 
     @param reservePrice The minimum price for which the auction item can be sold.
@@ -116,11 +116,7 @@ integers, and we don't care yet for more than their distinctness.
     else None
 
   /** Keeps all the information to report the auction outcome if there weren't any
-    * more bids than those already processed.
-
-     We only care about the two top bids made. We aim to represent no more and
-     no less, so we introduce a convenient data structure. It must maintain an
-     invariant that if it stores two bids, they're ordered by price. */
+    * more bids than those already processed. */
 
   sealed abstract class AuctionState
 
@@ -185,6 +181,36 @@ integers, and we don't care yet for more than their distinctness.
 
   /** Determines the auction outcome given a list of [[Bid]]s and a reserve price,
     * by folding a stream.
+
+    By the junior year, students grow lazy and feel less need to impress each
+    other with arcane knowledge. Do we really need that fancy Fibonacci heap here?
+
+    We only care about the two top bids made. We aim to represent no more and no
+    less, so we introduce a convenient data structure, [[AuctionState]]. It
+    must maintain the folowing invariants:
+
+     1. if it doesn't store bids, no incoming bid will be thrown away
+
+     2. if it stores two bids, they're ordered by price and have distinct
+    bidders names
+
+     3. if it stores two bids, it can't go back to one or zero
+
+    Having designed the [[AuctionState]] data structure and defined the insert
+    operation for it, `updateAuctionState`, we can express the auction as a
+    single fold. The worst-case time complexity becomes `O(n)`, non-amortised!
+
+    The advantage of the fold implementation over sorted list or priority queue
+    is that it scales easily. The bids can be then stored in distributed
+    collection (for example, in a `Stream` provided by the `fs2` library) which
+    can be folded in parallel, bringing the time complexity to `O(log(n))` (the
+    depth of the fold evaluation tree) under ideal scheduling.
+
+    In order for the fold to be parallelised, an additional property should be
+    proved about [[updateAuctionState]]. It must be an associative operator,
+    that is, the order of adding new bids to [[AuctionState]] shouldn't matter
+    for the result. We discuss the matter further in the accompanying README
+    file.
 
     @param reservePrice The minimum price for which the auction item can be sold.
     @param bids The list of [[Bid]]s to run the auction on.
