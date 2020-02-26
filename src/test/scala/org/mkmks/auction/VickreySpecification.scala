@@ -78,24 +78,6 @@ object VickreySpecification extends Properties("Vickrey") {
   val genDistinctBids = (bidders: List[Int]) =>
     listOf(genBid(bidders)).map(_.distinctBy(_.price))
 
-  property("littleSeasonedEquivDistinctBids") = forAll { reservePrice: Natural =>
-    forAll (genBidders) { bidders: List[Int] =>
-      forAll (genDistinctBids(bidders)) {
-        bids: List[Bid] => auctionLittle(reservePrice, bids)
-          .equals(auctionSeasoned(reservePrice, bids))
-      }
-    }
-  }
-
-  property("littleReasonedEquivDistinctBids") = forAll { reservePrice: Natural =>
-    forAllNoShrink (genBidders) { bidders: List[Int] =>
-      forAll (genDistinctBids(bidders)) {
-        bids: List[Bid] => auctionLittle(reservePrice, bids)
-          .equals(auctionReasoned(reservePrice, emits(bids)))
-      }
-    }
-  }
-
   val genNoBids = const(NoBids)
 
   val genOneBid = (bidders: List[Int]) => for {
