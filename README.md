@@ -24,6 +24,13 @@ ScalaCheck which integrates nicely with SBT:
 
 	sbt test
 
+Caveat: some rather uncomplicated ScalaCheck generators still discard more
+generated test cases than it was reasonable to expect in the defined
+properties. If not enough test cases were generated on a single run to your
+liking, run `sbt test` again. Properties that were in the "red" due to no
+counterexamples found after many discarded test cases are likely to become
+"green" again.
+
 How to use
 ----------
 
