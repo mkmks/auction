@@ -29,7 +29,7 @@ object Vickrey {
    only care if they're different for different bidders.
    */
 
-  final case class Bid(price: Natural, bidderId: Int);
+  final case class Bid(price: Natural, bidderId: Long);
 
   implicit val BidOrdering = Ordering.by[Bid, Natural](_.price)
 
@@ -70,7 +70,7 @@ integers, and we don't care yet for more than their distinctness.
 
    */
 
-  def auctionLittle(reservePrice: Natural, bids: List[Bid]): Option[(Natural, Int)] =
+  def auctionLittle(reservePrice: Natural, bids: List[Bid]): Option[(Natural, Long)] =
     bids match {
       case _ :: _ => {
         val ranking = bids.sortBy(_.price).reverse
@@ -94,7 +94,7 @@ integers, and we don't care yet for more than their distinctness.
     The equivalence between sorting algorithms and priority queues is
     well-known. By going from sorting a list of [[Bid]]s to inserting them into
     a priority queue we can cut the time complexity down from `O(n*log(n))` to
-    `O(n)`, thanks to insertion in `O(1)` amortized time that priority queues
+    `O(n)`, thanks to insertion in `O(1)` amortised time that priority queues
     implemented, say, with a Fibonacci heap, have.
 
     @param reservePrice The minimum price for which the auction item can be sold.
@@ -102,7 +102,7 @@ integers, and we don't care yet for more than their distinctness.
 
    */
 
-  def auctionSeasoned(reservePrice: Natural, bids: List[Bid]): Option[(Natural, Int)] =
+  def auctionSeasoned(reservePrice: Natural, bids: List[Bid]): Option[(Natural, Long)] =
     if (bids.nonEmpty) {
       val queue = new PriorityQueue() ++ bids
       val winner = queue.max.bidderId
@@ -116,11 +116,7 @@ integers, and we don't care yet for more than their distinctness.
     else None
 
   /** Keeps all the information to report the auction outcome if there weren't any
-    * more bids than those already processed.
-
-     We only care about the two top bids made. We aim to represent no more and
-     no less, so we introduce a convenient data structure. It must maintain an
-     invariant that if it stores two bids, they're ordered by price. */
+    * more bids than those already processed. */
 
   sealed abstract class AuctionState
 
@@ -142,37 +138,88 @@ integers, and we don't care yet for more than their distinctness.
     */
 
   val updateAuctionState = (acc: AuctionState, newbid: Bid) => acc match {
+    // one subcase: the new bid enters the queue
     case NoBids => OneBid(newbid)
+    // four subcases: the old bid is replaced, the new bid goes front/back, or
+    // the new bid is ignored
     case OneBid(oldbid: Bid) =>
-      if (oldbid.price < newbid.price)
+      if (newbid.price > oldbid.price && oldbid.bidderId == newbid.bidderId)
+        OneBid(newbid)
+      else if (newbid.price > oldbid.price && oldbid.bidderId != newbid.bidderId)
         TwoOrMoreBids(newbid, oldbid)
-      else
+      else if (newbid.price <= oldbid.price && oldbid.bidderId != newbid.bidderId)
         TwoOrMoreBids(oldbid, newbid)
+      else acc
+    // four subcases: bid1 is replaced, bid1 goes back, bid2 is replaced, or the
+    // new bid is ignored
     case TwoOrMoreBids(bid1, bid2) =>
-      if (bid1.price < newbid.price && bid2.price < newbid.price)
+      if (newbid.price > bid1.price && bid1.bidderId == newbid.bidderId)
+        TwoOrMoreBids(newbid, bid2)
+      else if (newbid.price > bid1.price && bid1.bidderId != newbid.bidderId)
         TwoOrMoreBids(newbid, bid1)
-      else if (bid1.price > newbid.price && bid2.price < newbid.price)
+      else if (newbid.price > bid2.price && bid2.bidderId == newbid.bidderId)
         TwoOrMoreBids(bid1, newbid)
       else acc
+  }
+
+  /** Tells what's the selling price and who's the winner (if anybody), given that
+    * the auction stops in the provided state.
+
+    @param as The auction state.
+    @param reservePrice The reserve price.
+    
+    */
+
+  val interpretAuctionState = (as: AuctionState, reservePrice: Natural) => as match {
+    case NoBids => None
+    case OneBid(bid) =>
+      Some(if (bid.price > reservePrice) bid.price else reservePrice, bid.bidderId)
+    case TwoOrMoreBids(bid1, bid2) =>
+      Some(if (bid2.price > reservePrice) bid2.price else reservePrice,
+        bid1.bidderId)
   }
 
   /** Determines the auction outcome given a list of [[Bid]]s and a reserve price,
     * by folding a stream.
 
+    By the junior year, students grow lazy and feel less need to impress each
+    other with arcane knowledge. Do we really need that fancy Fibonacci heap here?
+
+    We only care about the two top bids made. We aim to represent no more and no
+    less, so we introduce a convenient data structure, [[AuctionState]]. It
+    must maintain the folowing invariants:
+
+     1. if it doesn't store bids, no incoming bid will be thrown away
+
+     2. if it stores two bids, they're ordered by price and have distinct
+    bidders names
+
+     3. if it stores two bids, it can't go back to one or zero
+
+    Having designed the [[AuctionState]] data structure and defined the insert
+    operation for it, `updateAuctionState`, we can express the auction as a
+    single fold. The worst-case time complexity becomes `O(n)`, non-amortised!
+
+    The advantage of the fold implementation over sorted list or priority queue
+    is that it scales easily. The bids can be then stored in distributed
+    collection (for example, in a `Stream` provided by the `fs2` library) which
+    can be folded in parallel, bringing the time complexity to `O(log(n))` (the
+    depth of the fold evaluation tree) under ideal scheduling.
+
+    In order for the fold to be parallelised, an additional property should be
+    proved about [[updateAuctionState]]. It must be an associative operator,
+    that is, the order of adding new bids to [[AuctionState]] shouldn't matter
+    for the result. We discuss the matter further in the accompanying README
+    file.
+
     @param reservePrice The minimum price for which the auction item can be sold.
     @param bids The list of [[Bid]]s to run the auction on.
-
-   */
+    
+    */
 
   def auctionReasoned(reservePrice: Natural,
-                              bids: Stream[Pure, Bid]): Option[(Natural, Int)] =
-    bids.fold(NoBids: AuctionState)(updateAuctionState).toList.head match {
-      case NoBids => None
-      case OneBid(bid) =>
-        Some(if (bid.price > reservePrice) bid.price else reservePrice, bid.bidderId)
-      case TwoOrMoreBids(bid1, bid2) =>
-        Some(if (bid2.price > reservePrice) bid2.price else reservePrice,
-          bid1.bidderId)
-    }
+                              bids: Stream[Pure, Bid]): Option[(Natural, Long)] =
+    interpretAuctionState(bids.fold(NoBids: AuctionState)(updateAuctionState).toList.head,
+      reservePrice)
 
 }

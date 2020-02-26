@@ -34,16 +34,20 @@ the `Vickrey` object:
 
 To run the example command-line application: 
 
-	sbt "run inputfile"
+	sbt "run reservePrice inputFile"
 	
 For example,
 
-	sbt "run examples/Example1.csv"
+	sbt 100 "run examples/Example1.csv"
 
 Each line of the input file must contain bid prices from a single bidder given
 as integer numbers (that is, without fractional parts) and separated by
 commas. Empty lines are interpreted as bidders who are present during the
 auction but don't make bids.
+
+Caveat: command-line parameter validation isn't implemented yet! Beware of
+uncaught exceptions if the reserve price isn't a natural number or the input
+file isn't a path!
 
 Discussion
 ----------
